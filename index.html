@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#c0392b">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>My Dex</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--text:#1d1d1b;--muted:#6b6b66;--line:#ddd;--accent:#c0392b;--good:#1e8449;--bad:#c0392b;--warn:#b9770e}
+@media (prefers-color-scheme:dark){:root{--bg:#161616;--card:#222;--text:#eee;--muted:#999;--line:#3a3a3a;--accent:#e57368;--good:#58c47f;--bad:#e57368;--warn:#f0b35a}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);display:flex;z-index:5}
+header button{flex:1;padding:14px 0;border:0;background:none;color:var(--muted);font-size:15px;border-bottom:3px solid transparent}
+header button.on{color:var(--text);border-bottom-color:var(--accent)}
+main{max-width:900px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.tab{display:none}.tab.on{display:block}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:16px;font-family:inherit}
+.row{display:grid;gap:8px;margin-bottom:10px}
+.r3{grid-template-columns:70px minmax(0,1fr) 70px}
+.r2{grid-template-columns:70px minmax(0,1fr)}
+.r6{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.r6 input{text-align:center;padding:9px 0}
+.btn{padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:15px;margin:0 4px 4px 0}
+.main{background:var(--accent);border-color:var(--accent);color:#fff}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.out{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;text-align:center;font-size:12px;margin:4px 0 8px}
+.out div{background:var(--bg);border-radius:8px;padding:6px 0}
+.out b{display:block;font-size:15px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap}
+th,td{padding:8px 5px;border-bottom:1px solid var(--line);text-align:center}
+th{font-size:12px;color:var(--muted);cursor:pointer;user-select:none;font-weight:400}
+th.gh{cursor:default;font-size:11px;border-bottom:0;padding-bottom:0}
+.sep{border-left:1px solid var(--line)}
+.nm{position:sticky;left:0;background:var(--card);z-index:1}
+.l{text-align:left}
+td.best{color:var(--good);font-weight:600}
+.warn{color:var(--warn)}
+.ic{border:0;background:none;color:var(--muted);font-size:17px;padding:4px 6px}
+.t{display:inline-block;padding:4px 10px;border-radius:999px;color:#fff;font-size:13px;margin:3px;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.grp{margin-bottom:12px}.grp h3{font-size:14px;margin:0 0 4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.seg button{flex:1;padding:9px;border:0;background:none;color:var(--text);font-size:15px}
+.seg button.on{background:var(--accent);color:#fff}
+small{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <button data-tab="dex" class="on">Pokédex</button>
+  <button data-tab="types">Types</button>
+  <button data-tab="notes">Notes</button>
+</header>
+<main>
+
+<section id="dex" class="tab on">
+  <div class="card">
+    <div class="row r3">
+      <div><label>ID</label><input id="fUid" placeholder="auto"></div>
+      <div><label>Name</label><input id="fName" placeholder="Bulbasaur"></div>
+      <div><label>Level</label><input id="fLv" type="number" min="1" max="100" inputmode="numeric"></div>
+    </div>
+    <div class="row r2">
+      <div><label>Dex #</label><input id="fNo" type="number" min="1" inputmode="numeric"></div>
+      <div><label>Nature</label><select id="fNat"></select></div>
+    </div>
+    <label>Stats shown in game</label>
+    <div class="row r6" id="fStats"></div>
+    <label>Core value (2 × Base + IV + EV/4)</label>
+    <div class="out" id="fOut"></div>
+    <div class="err" id="fErr"></div>
+    <button class="btn main" id="bSave">Add to Pokédex</button>
+    <button class="btn" id="bCancel" hidden>Cancel</button>
+  </div>
+  <div class="card">
+    <div class="scroll"><table><thead id="tHead"></thead><tbody id="tBody"></tbody></table></div>
+    <p id="empty"><small>No Pokémon yet. Add your first catch above.</small></p>
+    <p id="starHint" style="margin:8px 0 0"><small>* Stat doesn't fit level and nature exactly. Check your input.</small></p>
+  </div>
+  <div class="card">
+    <button class="btn" id="bExport">Export backup</button>
+    <button class="btn" id="bImport">Import backup</button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <p><small>Your data is stored on this device only. Export a backup now and then.</small></p>
+  </div>
+</section>
+
+<section id="types" class="tab">
+  <div class="card">
+    <div class="seg" id="segMode">
+      <button data-m="def" class="on">Defense</button>
+      <button data-m="off">Offense</button>
+    </div>
+    <div class="row" style="grid-template-columns:1fr 1fr">
+      <div><label>Type 1</label><select id="ty1"></select></div>
+      <div><label>Type 2</label><select id="ty2"></select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text)">
+      <input type="checkbox" id="gen6" style="width:auto"> Gen 6+ chart (with Fairy type)
+    </label>
+  </div>
+  <div class="card" id="tyOut"></div>
+</section>
+
+<section id="notes" class="tab">
+  <div class="card">
+    <div class="row"><div><label>Title</label><input id="nTitle" placeholder="Gym 3 team plan"></div></div>
+    <div class="row"><div><label>Note</label><textarea id="nText" rows="5"></textarea></div></div>
+    <div class="err" id="nErr"></div>
+    <button class="btn main" id="nSave">Save note</button>
+    <button class="btn" id="nCancel" hidden>Cancel</button>
+  </div>
+  <div id="nList"></div>
+</section>
+
+</main>
+<script>
+// ---------- Data & storage ----------
+const STATS = ["HP","Atk","Def","SpA","SpD","Spe"];
+// [name, raised stat, lowered stat] – index into STATS, 0 = neutral
+const NATURES = [["Hardy",0,0],["Lonely",1,2],["Brave",1,5],["Adamant",1,3],["Naughty",1,4],
+  ["Bold",2,1],["Docile",0,0],["Relaxed",2,5],["Impish",2,3],["Lax",2,4],
+  ["Timid",5,1],["Hasty",5,2],["Serious",0,0],["Jolly",5,3],["Naive",5,4],
+  ["Modest",3,1],["Mild",3,2],["Quiet",3,5],["Bashful",0,0],["Rash",3,4],
+  ["Calm",4,1],["Gentle",4,2],["Sassy",4,5],["Careful",4,3],["Quirky",0,0]];
+// Role columns: [label, stat A, stat B] – index into STATS
+const ROLES = [["Atk+Spe",1,5],["SpA+Spe",3,5],["Def+HP",2,0],["SpD+HP",4,0]];
+const KEY = "mydex-v1";
+let data = load();
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {mons:[],notes:[]}; } catch(e){ return {mons:[],notes:[]}; } }
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+
+// ---------- Tabs ----------
+document.querySelectorAll("header button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("header button, .tab").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); $(b.dataset.tab).classList.add("on");
+});
+
+// ---------- Stat math ----------
+// Forward formula (what the game does) – used to check if the input fits exactly
+function statFromCore(i, core, lv, nat){
+  const c = Math.floor(core * lv / 100);
+  if (i === 0) return c + lv + 10;
+  let v = c + 5;
+  const [, up, down] = NATURES[nat];
+  if (up === i) v = Math.floor(v * 110 / 100);
+  if (down === i) v = Math.floor(v * 90 / 100);
+  return v;
+}
+// Core value X = 2*Base + IV + EV/4, rounded up -> lowest possible value
+//   HP:    X = (Stat - Lvl - 10) * 100 / Lvl
+//   Other: X = (Stat / Nature - 5) * 100 / Lvl
+function coreValue(i, stat, lv, nat){
+  let x;
+  if (i === 0) {
+    x = Math.ceil((stat - lv - 10) * 100 / lv);
+  } else {
+    const [, up, down] = NATURES[nat];
+    let v = stat;
+    if (up === i) v = Math.ceil(stat * 100 / 110);
+    else if (down === i) v = Math.ceil(stat * 100 / 90);
+    x = Math.ceil((v - 5) * 100 / lv);
+  }
+  x = Math.max(0, x);
+  return { v: x, exact: statFromCore(i, x, lv, nat) === stat };
+}
+const show = c => c.v + (c.exact ? "" : "*");
+
+// ---------- Pokédex form ----------
+const natSel = $("fNat");
+NATURES.map((n,i) => [n,i])
+  .sort((a,b) => a[0][0].localeCompare(b[0][0]))
+  .forEach(([n,i]) => natSel.add(new Option(n[1] ? `${n[0]} (+${STATS[n[1]]} −${STATS[n[2]]})` : `${n[0]} (neutral)`, i)));
+natSel.value = "0";
+const statIn = STATS.map(s => {
+  const w = document.createElement("div");
+  w.innerHTML = `<label style="text-align:center">${s}</label><input type="number" min="1" inputmode="numeric">`;
+  $("fStats").appendChild(w); return w.querySelector("input");
+});
+let editId = null;
+
+function formValues(){
+  return { uid: $("fUid").value.trim(), no: $("fNo").value, name: $("fName").value.trim(), lv: +$("fLv").value,
+           nat: +natSel.value, stats: statIn.map(x => x.value === "" ? null : +x.value) };
+}
+function preview(){
+  const f = formValues(); $("fErr").textContent = "";
+  const lvOk = f.lv >= 1 && f.lv <= 100;
+  $("fOut").innerHTML = STATS.map((s,i) => {
+    if (!lvOk || !f.stats[i]) return `<div>${s}<b>–</b></div>`;
+    const c = coreValue(i, f.stats[i], f.lv, f.nat);
+    return `<div>${s}<b class="${c.exact ? "" : "warn"}">${show(c)}</b></div>`;
+  }).join("");
+}
+[$("fLv"), $("fName"), $("fUid"), ...statIn].forEach(x => x.addEventListener("input", preview));
+natSel.addEventListener("change", preview);
+
+$("bSave").onclick = () => {
+  const f = formValues(), err = $("fErr");
+  if (!f.name){ err.textContent = "Enter a name."; return; }
+  if (!(f.lv >= 1 && f.lv <= 100)){ err.textContent = "Enter a level between 1 and 100."; return; }
+  if (f.stats.some(v => v === null)){ err.textContent = "Enter all six stats."; return; }
+  let uid = f.uid;
+  if (!uid) uid = String(Math.max(0, ...data.mons.map(m => parseInt(m.uid) || 0)) + 1);
+  if (data.mons.some(m => m.uid === uid && m.id !== editId)){ err.textContent = `ID ${uid} is already taken.`; return; }
+  const mon = { id: editId || newId(), uid, no: f.no ? +f.no : null, name: f.name, lv: f.lv, nat: f.nat, stats: f.stats };
+  if (editId) data.mons[data.mons.findIndex(m => m.id === editId)] = mon;
+  else data.mons.push(mon);
+  save(); resetForm(); renderTable();
+};
+function resetForm(){
+  editId = null; $("fUid").value = ""; $("fNo").value = ""; $("fName").value = ""; statIn.forEach(x => x.value = "");
+  $("bSave").textContent = "Add to Pokédex"; $("bCancel").hidden = true; preview();
+}
+$("bCancel").onclick = resetForm;
+function editMon(id){
+  const m = data.mons.find(x => x.id === id); editId = id;
+  $("fUid").value = m.uid ?? ""; $("fNo").value = m.no ?? ""; $("fName").value = m.name;
+  $("fLv").value = m.lv; natSel.value = m.nat;
+  statIn.forEach((x,i) => x.value = m.stats[i]);
+  $("bSave").textContent = "Update"; $("bCancel").hidden = false; preview();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function delMon(id){
+  const m = data.mons.find(x => x.id === id);
+  if (confirm(`Delete ${m.name}?`)){ data.mons = data.mons.filter(x => x.id !== id); save(); renderTable(); }
+}
+
+// ---------- Comparison table ----------
+let sortKey = "uid", sortDir = 1;
+const COLS = [["uid","ID"],["no","#"],["name","Name"],["lv","Lv"], ...STATS.map((s,i) => ["s"+i, s]), ["total","Total"],
+              ...ROLES.map((r,j) => ["r"+j, r[0]])];
+function sortVal(x, k){
+  if (k === "uid"){ const n = parseInt(x.m.uid); return isNaN(n) ? 1e9 : n; }
+  if (k === "no") return x.m.no ?? 99999;
+  if (k === "name") return x.m.name.toLowerCase();
+  if (k === "lv") return x.m.lv;
+  if (k === "total") return x.tot;
+  if (k[0] === "r") return x.roles[+k.slice(1)].v;
+  return x.c[+k.slice(1)].v;
+}
+function renderTable(){
+  $("tHead").innerHTML =
+    `<tr><th class="gh" colspan="2"></th><th class="gh nm"></th><th class="gh"></th>` +
+    `<th class="gh sep" colspan="7">Core values</th><th class="gh sep" colspan="${ROLES.length}">Role sums</th><th class="gh"></th></tr><tr>` +
+    COLS.map(([k,l]) => `<th data-k="${k}" class="${k === "name" ? "l nm" : ""}${k === "s0" || k === "r0" ? " sep" : ""}">${l}${sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") +
+    "<th></th></tr>";
+  $("tHead").querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = ["uid","no","name"].includes(k) ? 1 : -1; }
+    renderTable();
+  });
+  const list = data.mons.map(m => {
+    const c = m.stats.map((v,i) => coreValue(i, v, m.lv, m.nat));
+    const roles = ROLES.map(([, a, b]) => ({ v: c[a].v + c[b].v, exact: c[a].exact && c[b].exact }));
+    return { m, c, roles, tot: c.reduce((a,x) => a + x.v, 0) };
+  });
+  const best = STATS.map((_,i) => Math.max(...list.map(x => x.c[i].v)));
+  const bestR = ROLES.map((_,j) => Math.max(...list.map(x => x.roles[j].v)));
+  const cell = (c, b, sep) => `<td class="${sep ? "sep " : ""}${!c.exact ? "warn" : list.length > 1 && c.v === b ? "best" : ""}">${show(c)}</td>`;
+  list.sort((a,b) => { const va = sortVal(a,sortKey), vb = sortVal(b,sortKey); return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir; });
+  $("tBody").innerHTML = list.map(x => `<tr>
+    <td>${esc(x.m.uid ?? "")}</td>
+    <td>${x.m.no ?? ""}</td>
+    <td class="l nm">${esc(x.m.name)}<br><small>${NATURES[x.m.nat][0]}</small></td>
+    <td>${x.m.lv}</td>
+    ${x.c.map((c,i) => cell(c, best[i], i === 0)).join("")}
+    <td>${x.tot}</td>
+    ${x.roles.map((r,j) => cell(r, bestR[j], j === 0)).join("")}
+    <td><button class="ic" data-e="${x.m.id}" aria-label="Edit">✎</button><button class="ic" data-d="${x.m.id}" aria-label="Delete">✕</button></td>
+  </tr>`).join("");
+  $("tBody").querySelectorAll("[data-e]").forEach(b => b.onclick = () => editMon(b.dataset.e));
+  $("tBody").querySelectorAll("[data-d]").forEach(b => b.onclick = () => delMon(b.dataset.d));
+  $("empty").hidden = list.length > 0;
+  $("starHint").hidden = !list.some(x => x.c.some(c => !c.exact));
+}
+
+// ---------- Backup ----------
+$("bExport").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}));
+  a.download = `mydex-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+};
+$("bImport").onclick = () => $("fileIn").click();
+$("fileIn").onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  file.text().then(t => {
+    try {
+      const d = JSON.parse(t);
+      if (!Array.isArray(d.mons) || !Array.isArray(d.notes)) throw 0;
+      if (confirm("Replace your current data with this backup?")){ data = d; save(); renderTable(); renderNotes(); }
+    } catch(_) { alert("That file isn't a valid backup."); }
+    e.target.value = "";
+  });
+};
+
+// ---------- Type matchups ----------
+// Attacking type -> defending type multipliers (only non-1x entries, Gen 6+ chart)
+const CHART = {
+  Normal:{Rock:.5,Ghost:0,Steel:.5},
+  Fire:{Fire:.5,Water:.5,Grass:2,Ice:2,Bug:2,Rock:.5,Dragon:.5,Steel:2},
+  Water:{Fire:2,Water:.5,Grass:.5,Ground:2,Rock:2,Dragon:.5},
+  Electric:{Water:2,Electric:.5,Grass:.5,Ground:0,Flying:2,Dragon:.5},
+  Grass:{Fire:.5,Water:2,Grass:.5,Poison:.5,Ground:2,Flying:.5,Bug:.5,Rock:2,Dragon:.5,Steel:.5},
+  Ice:{Fire:.5,Water:.5,Grass:2,Ice:.5,Ground:2,Flying:2,Dragon:2,Steel:.5},
+  Fighting:{Normal:2,Ice:2,Poison:.5,Flying:.5,Psychic:.5,Bug:.5,Rock:2,Ghost:0,Dark:2,Steel:2,Fairy:.5},
+  Poison:{Grass:2,Poison:.5,Ground:.5,Rock:.5,Ghost:.5,Steel:0,Fairy:2},
+  Ground:{Fire:2,Electric:2,Grass:.5,Poison:2,Flying:0,Bug:.5,Rock:2,Steel:2},
+  Flying:{Electric:.5,Grass:2,Fighting:2,Bug:2,Rock:.5,Steel:.5},
+  Psychic:{Fighting:2,Poison:2,Psychic:.5,Dark:0,Steel:.5},
+  Bug:{Fire:.5,Grass:2,Fighting:.5,Poison:.5,Flying:.5,Psychic:2,Ghost:.5,Dark:2,Steel:.5,Fairy:.5},
+  Rock:{Fire:2,Ice:2,Fighting:.5,Ground:.5,Flying:2,Bug:2,Steel:.5},
+  Ghost:{Normal:0,Psychic:2,Ghost:2,Dark:.5},
+  Dragon:{Dragon:2,Steel:.5,Fairy:0},
+  Dark:{Fighting:.5,Psychic:2,Ghost:2,Dark:.5,Fairy:.5},
+  Steel:{Fire:.5,Water:.5,Electric:.5,Ice:2,Rock:2,Steel:.5,Fairy:2},
+  Fairy:{Fire:.5,Fighting:2,Poison:.5,Dragon:2,Dark:2,Steel:.5}
+};
+const COLORS = {Normal:"#A8A77A",Fire:"#EE8130",Water:"#6390F0",Electric:"#F7D02C",Grass:"#7AC74C",Ice:"#96D9D6",
+  Fighting:"#C22E28",Poison:"#A33EA1",Ground:"#E2BF65",Flying:"#A98FF3",Psychic:"#F95587",Bug:"#A6B91A",
+  Rock:"#B6A136",Ghost:"#735797",Dragon:"#6F35FC",Dark:"#705746",Steel:"#B7B7CE",Fairy:"#D685AD"};
+const gen6 = () => $("gen6").checked;
+const typeList = () => Object.keys(CHART).filter(t => gen6() || t !== "Fairy");
+function eff(atk, def){
+  if (!def) return 1;
+  if (!gen6() && def === "Steel" && (atk === "Ghost" || atk === "Dark")) return .5; // Gen 2–5 rule
+  const v = CHART[atk][def]; return v === undefined ? 1 : v;
+}
+function fillTypeSelects(){
+  const list = typeList();
+  [["ty1",false],["ty2",true]].forEach(([id, optional]) => {
+    const s = $(id), cur = s.value; s.innerHTML = "";
+    if (optional) s.add(new Option("— none —", ""));
+    list.forEach(t => s.add(new Option(t, t)));
+    if (list.includes(cur) || (optional && cur === "")) s.value = cur;
+  });
+}
+let mode = "def";
+document.querySelectorAll("#segMode button").forEach(b => b.onclick = () => {
+  mode = b.dataset.m;
+  document.querySelectorAll("#segMode button").forEach(x => x.classList.toggle("on", x === b));
+  renderTypes();
+});
+const badge = t => `<span class="t" style="background:${COLORS[t]}">${t}</span>`;
+const LABEL = {4:"4× super effective",2:"2× super effective",1:"1× normal",0.5:"½× not very effective",0.25:"¼× not very effective",0:"0× no effect"};
+function renderTypes(){
+  const t1 = $("ty1").value, t2 = $("ty2").value === t1 ? "" : $("ty2").value;
+  const groups = {};
+  const add = (m, t) => (groups[m] = groups[m] || []).push(t);
+  let title;
+  if (mode === "def"){
+    typeList().forEach(a => add(eff(a, t1) * eff(a, t2), a));
+    title = `Damage taken by a ${[t1,t2].filter(Boolean).join(" / ")} Pokémon`;
+  } else {
+    typeList().forEach(d => add(Math.max(eff(t1, d), t2 ? eff(t2, d) : -1), d));
+    title = `Best damage from ${[t1,t2].filter(Boolean).join(" + ")} moves vs. single types`;
+  }
+  $("tyOut").innerHTML = `<p style="margin-top:0">${title}</p>` +
+    [4,2,1,.5,.25,0].filter(k => groups[k]).map(k => `<div class="grp"><h3>${LABEL[k]}</h3>${groups[k].map(badge).join("")}</div>`).join("");
+}
+$("ty1").onchange = renderTypes; $("ty2").onchange = renderTypes;
+$("gen6").checked = localStorage.getItem("mydex-gen6") === "1";
+$("gen6").onchange = () => { localStorage.setItem("mydex-gen6", gen6() ? "1" : ""); fillTypeSelects(); renderTypes(); };
+
+// ---------- Notes ----------
+let noteEdit = null;
+function renderNotes(){
+  $("nList").innerHTML = data.notes.slice().reverse().map(n => `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+      <strong>${esc(n.title || "Untitled")}</strong>
+      <span><button class="ic" data-ne="${n.id}" aria-label="Edit">✎</button><button class="ic" data-nd="${n.id}" aria-label="Delete">✕</button></span>
+    </div>
+    <div style="white-space:pre-wrap;margin-top:6px">${esc(n.text)}</div></div>`).join("");
+  $("nList").querySelectorAll("[data-ne]").forEach(b => b.onclick = () => {
+    const n = data.notes.find(x => x.id === b.dataset.ne); noteEdit = n.id;
+    $("nTitle").value = n.title; $("nText").value = n.text;
+    $("nSave").textContent = "Update note"; $("nCancel").hidden = false; window.scrollTo({top:0, behavior:"smooth"});
+  });
+  $("nList").querySelectorAll("[data-nd]").forEach(b => b.onclick = () => {
+    if (confirm("Delete this note?")){ data.notes = data.notes.filter(x => x.id !== b.dataset.nd); save(); renderNotes(); }
+  });
+}
+$("nSave").onclick = () => {
+  const title = $("nTitle").value.trim(), text = $("nText").value.trim();
+  if (!title && !text){ $("nErr").textContent = "Write something first."; return; }
+  $("nErr").textContent = "";
+  if (noteEdit){ const n = data.notes.find(x => x.id === noteEdit); n.title = title; n.text = text; }
+  else data.notes.push({ id: newId(), title, text });
+  save(); resetNote(); renderNotes();
+};
+function resetNote(){ noteEdit = null; $("nTitle").value = ""; $("nText").value = ""; $("nSave").textContent = "Save note"; $("nCancel").hidden = true; }
+$("nCancel").onclick = resetNote;
+[$("nTitle"), $("nText")].forEach(x => x.addEventListener("input", () => $("nErr").textContent = ""));
+
+// ---------- Start ----------
+fillTypeSelects(); renderTypes(); preview(); renderTable(); renderNotes();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
