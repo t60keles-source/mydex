@@ -23,8 +23,11 @@ input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border
 .row{display:grid;gap:8px;margin-bottom:10px}
 .r3{grid-template-columns:70px minmax(0,1fr) 70px}
 .r2{grid-template-columns:70px minmax(0,1fr)}
+.rh{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .r6{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
 .r6 input{text-align:center;padding:9px 0}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text);margin-bottom:10px}
+.chk input{width:auto}
 .btn{padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:15px;margin:0 4px 4px 0}
 .main{background:var(--accent);border-color:var(--accent);color:#fff}
 .err{color:var(--bad);font-size:13px;min-height:18px}
@@ -43,6 +46,7 @@ td.best{color:var(--good);font-weight:600}
 .warn{color:var(--warn)}
 .ic{border:0;background:none;color:var(--muted);font-size:17px;padding:4px 6px}
 .t{display:inline-block;padding:4px 10px;border-radius:999px;color:#fff;font-size:13px;margin:3px;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.t.sm{padding:2px 7px;font-size:11px;margin:1px}
 .grp{margin-bottom:12px}.grp h3{font-size:14px;margin:0 0 4px}
 .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px}
 .seg button{flex:1;padding:9px;border:0;background:none;color:var(--text);font-size:15px}
@@ -53,6 +57,7 @@ small{color:var(--muted)}
 <body>
 <header>
   <button data-tab="dex" class="on">Pokédex</button>
+  <button data-tab="filter">Filter</button>
   <button data-tab="types">Types</button>
   <button data-tab="notes">Notes</button>
 </header>
@@ -68,6 +73,10 @@ small{color:var(--muted)}
     <div class="row r2">
       <div><label>Dex #</label><input id="fNo" type="number" min="1" inputmode="numeric"></div>
       <div><label>Nature</label><select id="fNat"></select></div>
+    </div>
+    <div class="row rh">
+      <div><label>Type 1</label><select id="fT1"></select></div>
+      <div><label>Type 2</label><select id="fT2"></select></div>
     </div>
     <label>Stats shown in game</label>
     <div class="row r6" id="fStats"></div>
@@ -90,19 +99,41 @@ small{color:var(--muted)}
   </div>
 </section>
 
+<section id="filter" class="tab">
+  <div class="card">
+    <div class="row"><div><label>Name</label><input id="qName" placeholder="Search"></div></div>
+    <div class="row rh">
+      <div><label>Type</label><select id="qType"></select></div>
+      <div><label>Nature</label><select id="qNat"></select></div>
+    </div>
+    <div class="row rh">
+      <div><label>Level from</label><input id="qLvMin" type="number" min="1" max="100" inputmode="numeric" placeholder="1"></div>
+      <div><label>Level to</label><input id="qLvMax" type="number" min="1" max="100" inputmode="numeric" placeholder="100"></div>
+    </div>
+    <div class="row" style="grid-template-columns:minmax(0,1fr) 100px">
+      <div><label>Minimum value for</label><select id="qStat"></select></div>
+      <div><label>at least</label><input id="qMin" type="number" inputmode="numeric"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="qSingle"> Show single stats</label>
+    <button class="btn" id="qReset">Reset filters</button>
+  </div>
+  <div class="card">
+    <p id="qCount" style="margin-top:0"></p>
+    <div class="scroll"><table><thead id="qHead"></thead><tbody id="qBody"></tbody></table></div>
+  </div>
+</section>
+
 <section id="types" class="tab">
   <div class="card">
     <div class="seg" id="segMode">
       <button data-m="def" class="on">Defense</button>
       <button data-m="off">Offense</button>
     </div>
-    <div class="row" style="grid-template-columns:1fr 1fr">
+    <div class="row rh">
       <div><label>Type 1</label><select id="ty1"></select></div>
       <div><label>Type 2</label><select id="ty2"></select></div>
     </div>
-    <label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text)">
-      <input type="checkbox" id="gen6" style="width:auto"> Gen 6+ chart (with Fairy type)
-    </label>
+    <label class="chk"><input type="checkbox" id="gen6"> Gen 6+ chart (with Fairy type)</label>
   </div>
   <div class="card" id="tyOut"></div>
 </section>
@@ -137,12 +168,14 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const byName = (a,b) => a.localeCompare(b);
 
 // ---------- Tabs ----------
-document.querySelectorAll("header button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("header button, .tab").forEach(x => x.classList.remove("on"));
-  b.classList.add("on"); $(b.dataset.tab).classList.add("on");
-});
+function showTab(id){
+  document.querySelectorAll("header button").forEach(b => b.classList.toggle("on", b.dataset.tab === id));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === id));
+}
+document.querySelectorAll("header button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
 // ---------- Stat math ----------
 // Forward formula (what the game does) – used to check if the input fits exactly
@@ -174,135 +207,7 @@ function coreValue(i, stat, lv, nat){
 }
 const show = c => c.v + (c.exact ? "" : "*");
 
-// ---------- Pokédex form ----------
-const natSel = $("fNat");
-NATURES.map((n,i) => [n,i])
-  .sort((a,b) => a[0][0].localeCompare(b[0][0]))
-  .forEach(([n,i]) => natSel.add(new Option(n[1] ? `${n[0]} (+${STATS[n[1]]} −${STATS[n[2]]})` : `${n[0]} (neutral)`, i)));
-natSel.value = "0";
-const statIn = STATS.map(s => {
-  const w = document.createElement("div");
-  w.innerHTML = `<label style="text-align:center">${s}</label><input type="number" min="1" inputmode="numeric">`;
-  $("fStats").appendChild(w); return w.querySelector("input");
-});
-let editId = null;
-
-function formValues(){
-  return { uid: $("fUid").value.trim(), no: $("fNo").value, name: $("fName").value.trim(), lv: +$("fLv").value,
-           nat: +natSel.value, stats: statIn.map(x => x.value === "" ? null : +x.value) };
-}
-function preview(){
-  const f = formValues(); $("fErr").textContent = "";
-  const lvOk = f.lv >= 1 && f.lv <= 100;
-  $("fOut").innerHTML = STATS.map((s,i) => {
-    if (!lvOk || !f.stats[i]) return `<div>${s}<b>–</b></div>`;
-    const c = coreValue(i, f.stats[i], f.lv, f.nat);
-    return `<div>${s}<b class="${c.exact ? "" : "warn"}">${show(c)}</b></div>`;
-  }).join("");
-}
-[$("fLv"), $("fName"), $("fUid"), ...statIn].forEach(x => x.addEventListener("input", preview));
-natSel.addEventListener("change", preview);
-
-$("bSave").onclick = () => {
-  const f = formValues(), err = $("fErr");
-  if (!f.name){ err.textContent = "Enter a name."; return; }
-  if (!(f.lv >= 1 && f.lv <= 100)){ err.textContent = "Enter a level between 1 and 100."; return; }
-  if (f.stats.some(v => v === null)){ err.textContent = "Enter all six stats."; return; }
-  let uid = f.uid;
-  if (!uid) uid = String(Math.max(0, ...data.mons.map(m => parseInt(m.uid) || 0)) + 1);
-  if (data.mons.some(m => m.uid === uid && m.id !== editId)){ err.textContent = `ID ${uid} is already taken.`; return; }
-  const mon = { id: editId || newId(), uid, no: f.no ? +f.no : null, name: f.name, lv: f.lv, nat: f.nat, stats: f.stats };
-  if (editId) data.mons[data.mons.findIndex(m => m.id === editId)] = mon;
-  else data.mons.push(mon);
-  save(); resetForm(); renderTable();
-};
-function resetForm(){
-  editId = null; $("fUid").value = ""; $("fNo").value = ""; $("fName").value = ""; statIn.forEach(x => x.value = "");
-  $("bSave").textContent = "Add to Pokédex"; $("bCancel").hidden = true; preview();
-}
-$("bCancel").onclick = resetForm;
-function editMon(id){
-  const m = data.mons.find(x => x.id === id); editId = id;
-  $("fUid").value = m.uid ?? ""; $("fNo").value = m.no ?? ""; $("fName").value = m.name;
-  $("fLv").value = m.lv; natSel.value = m.nat;
-  statIn.forEach((x,i) => x.value = m.stats[i]);
-  $("bSave").textContent = "Update"; $("bCancel").hidden = false; preview();
-  window.scrollTo({top:0, behavior:"smooth"});
-}
-function delMon(id){
-  const m = data.mons.find(x => x.id === id);
-  if (confirm(`Delete ${m.name}?`)){ data.mons = data.mons.filter(x => x.id !== id); save(); renderTable(); }
-}
-
-// ---------- Comparison table ----------
-let sortKey = "uid", sortDir = 1;
-const COLS = [["uid","ID"],["no","#"],["name","Name"],["lv","Lv"], ...STATS.map((s,i) => ["s"+i, s]), ["total","Total"],
-              ...ROLES.map((r,j) => ["r"+j, r[0]])];
-function sortVal(x, k){
-  if (k === "uid"){ const n = parseInt(x.m.uid); return isNaN(n) ? 1e9 : n; }
-  if (k === "no") return x.m.no ?? 99999;
-  if (k === "name") return x.m.name.toLowerCase();
-  if (k === "lv") return x.m.lv;
-  if (k === "total") return x.tot;
-  if (k[0] === "r") return x.roles[+k.slice(1)].v;
-  return x.c[+k.slice(1)].v;
-}
-function renderTable(){
-  $("tHead").innerHTML =
-    `<tr><th class="gh" colspan="2"></th><th class="gh nm"></th><th class="gh"></th>` +
-    `<th class="gh sep" colspan="7">Core values</th><th class="gh sep" colspan="${ROLES.length}">Role sums</th><th class="gh"></th></tr><tr>` +
-    COLS.map(([k,l]) => `<th data-k="${k}" class="${k === "name" ? "l nm" : ""}${k === "s0" || k === "r0" ? " sep" : ""}">${l}${sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") +
-    "<th></th></tr>";
-  $("tHead").querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
-    const k = th.dataset.k;
-    if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = ["uid","no","name"].includes(k) ? 1 : -1; }
-    renderTable();
-  });
-  const list = data.mons.map(m => {
-    const c = m.stats.map((v,i) => coreValue(i, v, m.lv, m.nat));
-    const roles = ROLES.map(([, a, b]) => ({ v: c[a].v + c[b].v, exact: c[a].exact && c[b].exact }));
-    return { m, c, roles, tot: c.reduce((a,x) => a + x.v, 0) };
-  });
-  const best = STATS.map((_,i) => Math.max(...list.map(x => x.c[i].v)));
-  const bestR = ROLES.map((_,j) => Math.max(...list.map(x => x.roles[j].v)));
-  const cell = (c, b, sep) => `<td class="${sep ? "sep " : ""}${!c.exact ? "warn" : list.length > 1 && c.v === b ? "best" : ""}">${show(c)}</td>`;
-  list.sort((a,b) => { const va = sortVal(a,sortKey), vb = sortVal(b,sortKey); return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir; });
-  $("tBody").innerHTML = list.map(x => `<tr>
-    <td>${esc(x.m.uid ?? "")}</td>
-    <td>${x.m.no ?? ""}</td>
-    <td class="l nm">${esc(x.m.name)}<br><small>${NATURES[x.m.nat][0]}</small></td>
-    <td>${x.m.lv}</td>
-    ${x.c.map((c,i) => cell(c, best[i], i === 0)).join("")}
-    <td>${x.tot}</td>
-    ${x.roles.map((r,j) => cell(r, bestR[j], j === 0)).join("")}
-    <td><button class="ic" data-e="${x.m.id}" aria-label="Edit">✎</button><button class="ic" data-d="${x.m.id}" aria-label="Delete">✕</button></td>
-  </tr>`).join("");
-  $("tBody").querySelectorAll("[data-e]").forEach(b => b.onclick = () => editMon(b.dataset.e));
-  $("tBody").querySelectorAll("[data-d]").forEach(b => b.onclick = () => delMon(b.dataset.d));
-  $("empty").hidden = list.length > 0;
-  $("starHint").hidden = !list.some(x => x.c.some(c => !c.exact));
-}
-
-// ---------- Backup ----------
-$("bExport").onclick = () => {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}));
-  a.download = `mydex-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
-};
-$("bImport").onclick = () => $("fileIn").click();
-$("fileIn").onchange = e => {
-  const file = e.target.files[0]; if (!file) return;
-  file.text().then(t => {
-    try {
-      const d = JSON.parse(t);
-      if (!Array.isArray(d.mons) || !Array.isArray(d.notes)) throw 0;
-      if (confirm("Replace your current data with this backup?")){ data = d; save(); renderTable(); renderNotes(); }
-    } catch(_) { alert("That file isn't a valid backup."); }
-    e.target.value = "";
-  });
-};
-
-// ---------- Type matchups ----------
+// ---------- Types ----------
 // Attacking type -> defending type multipliers (only non-1x entries, Gen 6+ chart)
 const CHART = {
   Normal:{Rock:.5,Ghost:0,Steel:.5},
@@ -328,20 +233,218 @@ const COLORS = {Normal:"#A8A77A",Fire:"#EE8130",Water:"#6390F0",Electric:"#F7D02
   Fighting:"#C22E28",Poison:"#A33EA1",Ground:"#E2BF65",Flying:"#A98FF3",Psychic:"#F95587",Bug:"#A6B91A",
   Rock:"#B6A136",Ghost:"#735797",Dragon:"#6F35FC",Dark:"#705746",Steel:"#B7B7CE",Fairy:"#D685AD"};
 const gen6 = () => $("gen6").checked;
-const typeList = () => Object.keys(CHART).filter(t => gen6() || t !== "Fairy");
+const typeList = () => Object.keys(CHART).filter(t => gen6() || t !== "Fairy").sort(byName);
+const badge = (t, sm) => `<span class="t${sm ? " sm" : ""}" style="background:${COLORS[t] || "#888"}">${esc(t)}</span>`;
+
+// Fill a select with options; "first" adds an empty option on top. Keeps the current choice if possible.
+function fillSel(s, opts, first){
+  const cur = s.value; s.innerHTML = "";
+  if (first !== undefined) s.add(new Option(first, ""));
+  opts.forEach(([v,l]) => s.add(new Option(l, v)));
+  s.value = cur;
+  if (s.value !== cur || s.selectedIndex < 0) s.selectedIndex = 0;
+}
+// Make sure a value exists in a select (e.g. Fairy on an old entry while Gen 6+ is off)
+function ensureOpt(s, v){ if (v && ![...s.options].some(o => o.value === v)) s.add(new Option(v, v)); s.value = v || ""; }
+
+function fillTypeSelects(){
+  const opts = typeList().map(t => [t,t]);
+  fillSel($("ty1"), opts);
+  fillSel($("ty2"), opts, "— none —");
+  fillSel($("fT1"), opts, "— choose —");
+  fillSel($("fT2"), opts, "— none —");
+  fillSel($("qType"), opts, "Any");
+}
+
+// ---------- Pokédex form ----------
+const NAT_OPTS = NATURES.map((n,i) => [String(i), n[1] ? `${n[0]} (+${STATS[n[1]]} −${STATS[n[2]]})` : `${n[0]} (neutral)`])
+  .sort((a,b) => byName(a[1], b[1]));
+const natSel = $("fNat");
+fillSel(natSel, NAT_OPTS);
+natSel.value = "0";
+const statIn = STATS.map(s => {
+  const w = document.createElement("div");
+  w.innerHTML = `<label style="text-align:center">${s}</label><input type="number" min="1" inputmode="numeric">`;
+  $("fStats").appendChild(w); return w.querySelector("input");
+});
+let editId = null;
+
+function formValues(){
+  const t1 = $("fT1").value, t2 = $("fT2").value;
+  return { uid: $("fUid").value.trim(), no: $("fNo").value, name: $("fName").value.trim(), lv: +$("fLv").value,
+           nat: +natSel.value, types: [t1, t2 !== t1 ? t2 : ""].filter(Boolean),
+           stats: statIn.map(x => x.value === "" ? null : +x.value) };
+}
+function preview(){
+  const f = formValues(); $("fErr").textContent = "";
+  const lvOk = f.lv >= 1 && f.lv <= 100;
+  $("fOut").innerHTML = STATS.map((s,i) => {
+    if (!lvOk || !f.stats[i]) return `<div>${s}<b>–</b></div>`;
+    const c = coreValue(i, f.stats[i], f.lv, f.nat);
+    return `<div>${s}<b class="${c.exact ? "" : "warn"}">${show(c)}</b></div>`;
+  }).join("");
+}
+[$("fLv"), $("fName"), $("fUid"), ...statIn].forEach(x => x.addEventListener("input", preview));
+[natSel, $("fT1"), $("fT2")].forEach(x => x.addEventListener("change", preview));
+
+$("bSave").onclick = () => {
+  const f = formValues(), err = $("fErr");
+  if (!f.name){ err.textContent = "Enter a name."; return; }
+  if (!(f.lv >= 1 && f.lv <= 100)){ err.textContent = "Enter a level between 1 and 100."; return; }
+  if (!f.types.length){ err.textContent = "Choose at least Type 1."; return; }
+  if (f.stats.some(v => v === null)){ err.textContent = "Enter all six stats."; return; }
+  let uid = f.uid;
+  if (!uid) uid = String(Math.max(0, ...data.mons.map(m => parseInt(m.uid) || 0)) + 1);
+  if (data.mons.some(m => m.uid === uid && m.id !== editId)){ err.textContent = `ID ${uid} is already taken.`; return; }
+  const mon = { id: editId || newId(), uid, no: f.no ? +f.no : null, name: f.name, lv: f.lv, nat: f.nat, types: f.types, stats: f.stats };
+  if (editId) data.mons[data.mons.findIndex(m => m.id === editId)] = mon;
+  else data.mons.push(mon);
+  save(); resetForm(); renderAll();
+};
+function resetForm(){
+  editId = null; $("fUid").value = ""; $("fNo").value = ""; $("fName").value = ""; statIn.forEach(x => x.value = "");
+  fillTypeSelects(); $("fT1").value = ""; $("fT2").value = "";
+  $("bSave").textContent = "Add to Pokédex"; $("bCancel").hidden = true; preview();
+}
+$("bCancel").onclick = resetForm;
+function editMon(id){
+  const m = data.mons.find(x => x.id === id); editId = id;
+  $("fUid").value = m.uid ?? ""; $("fNo").value = m.no ?? ""; $("fName").value = m.name;
+  $("fLv").value = m.lv; natSel.value = m.nat;
+  const t = m.types || [];
+  ensureOpt($("fT1"), t[0]); ensureOpt($("fT2"), t[1]);
+  statIn.forEach((x,i) => x.value = m.stats[i]);
+  $("bSave").textContent = "Update"; $("bCancel").hidden = false; preview();
+  showTab("dex"); window.scrollTo({top:0, behavior:"smooth"});
+}
+function delMon(id){
+  const m = data.mons.find(x => x.id === id);
+  if (confirm(`Delete ${m.name}?`)){ data.mons = data.mons.filter(x => x.id !== id); save(); renderAll(); }
+}
+
+// ---------- Tables (Pokédex + Filter) ----------
+const COLS = [["uid","ID"],["no","#"],["name","Name"],["types","Type"],["lv","Lv"], ...STATS.map((s,i) => ["s"+i, s]), ["total","Total"],
+              ...ROLES.map((r,j) => ["r"+j, r[0]])];
+function buildRows(mons){
+  return mons.map(m => {
+    const c = m.stats.map((v,i) => coreValue(i, v, m.lv, m.nat));
+    const roles = ROLES.map(([, a, b]) => ({ v: c[a].v + c[b].v, exact: c[a].exact && c[b].exact }));
+    return { m, c, roles, tot: c.reduce((a,x) => a + x.v, 0) };
+  });
+}
+function sortVal(x, k){
+  if (k === "uid"){ const n = parseInt(x.m.uid); return isNaN(n) ? 1e9 : n; }
+  if (k === "no") return x.m.no ?? 99999;
+  if (k === "name") return x.m.name.toLowerCase();
+  if (k === "types") return (x.m.types || []).join("/").toLowerCase() || "~";
+  if (k === "lv") return x.m.lv;
+  if (k === "total") return x.tot;
+  if (k[0] === "r") return x.roles[+k.slice(1)].v;
+  return x.c[+k.slice(1)].v;
+}
+const typeCell = m => (m.types || []).map(t => badge(t, true)).join("") || "<small>–</small>";
+
+function createTable(headEl, bodyEl){
+  const st = { key: "uid", dir: 1 };
+  return function render(list, single = true){
+    const cols = COLS.filter(([k]) => single || !/^s\d$/.test(k));
+    const firstCore = single ? "s0" : "total";
+    headEl.innerHTML =
+      `<tr><th class="gh" colspan="2"></th><th class="gh nm"></th><th class="gh" colspan="2"></th>` +
+      `<th class="gh sep" colspan="${single ? 7 : 1}">${single ? "Core values" : "Core"}</th>` +
+      `<th class="gh sep" colspan="${ROLES.length}">Role sums</th><th class="gh"></th></tr><tr>` +
+      cols.map(([k,l]) => `<th data-k="${k}" class="${k === "name" ? "l nm" : ""}${k === firstCore || k === "r0" ? " sep" : ""}">${l}${st.key === k ? (st.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") +
+      "<th></th></tr>";
+    headEl.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+      const k = th.dataset.k;
+      if (st.key === k) st.dir *= -1; else { st.key = k; st.dir = ["uid","no","name","types"].includes(k) ? 1 : -1; }
+      renderAll();
+    });
+    const best = STATS.map((_,i) => Math.max(...list.map(x => x.c[i].v)));
+    const bestR = ROLES.map((_,j) => Math.max(...list.map(x => x.roles[j].v)));
+    const cell = (c, b, sep) => `<td class="${sep ? "sep " : ""}${!c.exact ? "warn" : list.length > 1 && c.v === b ? "best" : ""}">${show(c)}</td>`;
+    const rows = list.slice().sort((a,b) => { const va = sortVal(a,st.key), vb = sortVal(b,st.key); return (va > vb ? 1 : va < vb ? -1 : 0) * st.dir; });
+    bodyEl.innerHTML = rows.map(x => `<tr>
+      <td>${esc(x.m.uid ?? "")}</td>
+      <td>${x.m.no ?? ""}</td>
+      <td class="l nm">${esc(x.m.name)}<br><small>${NATURES[x.m.nat][0]}</small></td>
+      <td class="l">${typeCell(x.m)}</td>
+      <td>${x.m.lv}</td>
+      ${single ? x.c.map((c,i) => cell(c, best[i], i === 0)).join("") : ""}
+      <td${single ? "" : ' class="sep"'}>${x.tot}</td>
+      ${x.roles.map((r,j) => cell(r, bestR[j], j === 0)).join("")}
+      <td><button class="ic" data-e="${x.m.id}" aria-label="Edit">✎</button><button class="ic" data-d="${x.m.id}" aria-label="Delete">✕</button></td>
+    </tr>`).join("");
+    bodyEl.querySelectorAll("[data-e]").forEach(b => b.onclick = () => editMon(b.dataset.e));
+    bodyEl.querySelectorAll("[data-d]").forEach(b => b.onclick = () => delMon(b.dataset.d));
+  };
+}
+const dexTable = createTable($("tHead"), $("tBody"));
+const filterTable = createTable($("qHead"), $("qBody"));
+
+function renderTable(){
+  const list = buildRows(data.mons);
+  dexTable(list, true);
+  $("empty").hidden = list.length > 0;
+  $("starHint").hidden = !list.some(x => x.c.some(c => !c.exact));
+}
+
+// ---------- Filter tab ----------
+const STAT_OPTS = [["total","Total"], ...STATS.map((s,i) => ["s"+i, s]), ...ROLES.map((r,j) => ["r"+j, r[0]])]
+  .sort((a,b) => byName(a[1], b[1]));
+fillSel($("qNat"), NAT_OPTS, "Any");
+fillSel($("qStat"), STAT_OPTS, "—");
+try { $("qSingle").checked = localStorage.getItem("mydex-single") !== "0"; } catch(e) { $("qSingle").checked = true; }
+
+function renderFilter(){
+  const q = $("qName").value.trim().toLowerCase(), ty = $("qType").value, nat = $("qNat").value;
+  const lmin = +$("qLvMin").value || 1, lmax = +$("qLvMax").value || 100;
+  const stat = $("qStat").value, min = $("qMin").value;
+  const all = buildRows(data.mons);
+  const list = all.filter(x =>
+    (!q || x.m.name.toLowerCase().includes(q)) &&
+    (!ty || (x.m.types || []).includes(ty)) &&
+    (nat === "" || x.m.nat === +nat) &&
+    x.m.lv >= lmin && x.m.lv <= lmax &&
+    (!stat || min === "" || sortVal(x, stat) >= +min));
+  filterTable(list, $("qSingle").checked);
+  $("qCount").innerHTML = `<small>${list.length} of ${all.length} Pokémon</small>`;
+}
+[$("qName"), $("qLvMin"), $("qLvMax"), $("qMin")].forEach(x => x.addEventListener("input", renderFilter));
+[$("qType"), $("qNat"), $("qStat")].forEach(x => x.addEventListener("change", renderFilter));
+$("qSingle").onchange = () => { try { localStorage.setItem("mydex-single", $("qSingle").checked ? "1" : "0"); } catch(e) {} renderFilter(); };
+$("qReset").onclick = () => {
+  ["qName","qLvMin","qLvMax","qMin"].forEach(id => $(id).value = "");
+  ["qType","qNat","qStat"].forEach(id => $(id).value = "");
+  renderFilter();
+};
+
+function renderAll(){ renderTable(); renderFilter(); }
+
+// ---------- Backup ----------
+$("bExport").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}));
+  a.download = `mydex-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+};
+$("bImport").onclick = () => $("fileIn").click();
+$("fileIn").onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  file.text().then(t => {
+    try {
+      const d = JSON.parse(t);
+      if (!Array.isArray(d.mons) || !Array.isArray(d.notes)) throw 0;
+      if (confirm("Replace your current data with this backup?")){ data = d; save(); renderAll(); renderNotes(); }
+    } catch(_) { alert("That file isn't a valid backup."); }
+    e.target.value = "";
+  });
+};
+
+// ---------- Type matchups ----------
 function eff(atk, def){
   if (!def) return 1;
   if (!gen6() && def === "Steel" && (atk === "Ghost" || atk === "Dark")) return .5; // Gen 2–5 rule
   const v = CHART[atk][def]; return v === undefined ? 1 : v;
-}
-function fillTypeSelects(){
-  const list = typeList();
-  [["ty1",false],["ty2",true]].forEach(([id, optional]) => {
-    const s = $(id), cur = s.value; s.innerHTML = "";
-    if (optional) s.add(new Option("— none —", ""));
-    list.forEach(t => s.add(new Option(t, t)));
-    if (list.includes(cur) || (optional && cur === "")) s.value = cur;
-  });
 }
 let mode = "def";
 document.querySelectorAll("#segMode button").forEach(b => b.onclick = () => {
@@ -349,7 +452,6 @@ document.querySelectorAll("#segMode button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#segMode button").forEach(x => x.classList.toggle("on", x === b));
   renderTypes();
 });
-const badge = t => `<span class="t" style="background:${COLORS[t]}">${t}</span>`;
 const LABEL = {4:"4× super effective",2:"2× super effective",1:"1× normal",0.5:"½× not very effective",0.25:"¼× not very effective",0:"0× no effect"};
 function renderTypes(){
   const t1 = $("ty1").value, t2 = $("ty2").value === t1 ? "" : $("ty2").value;
@@ -364,11 +466,14 @@ function renderTypes(){
     title = `Best damage from ${[t1,t2].filter(Boolean).join(" + ")} moves vs. single types`;
   }
   $("tyOut").innerHTML = `<p style="margin-top:0">${title}</p>` +
-    [4,2,1,.5,.25,0].filter(k => groups[k]).map(k => `<div class="grp"><h3>${LABEL[k]}</h3>${groups[k].map(badge).join("")}</div>`).join("");
+    [4,2,1,.5,.25,0].filter(k => groups[k]).map(k => `<div class="grp"><h3>${LABEL[k]}</h3>${groups[k].map(t => badge(t)).join("")}</div>`).join("");
 }
 $("ty1").onchange = renderTypes; $("ty2").onchange = renderTypes;
 $("gen6").checked = localStorage.getItem("mydex-gen6") === "1";
-$("gen6").onchange = () => { localStorage.setItem("mydex-gen6", gen6() ? "1" : ""); fillTypeSelects(); renderTypes(); };
+$("gen6").onchange = () => {
+  localStorage.setItem("mydex-gen6", gen6() ? "1" : "");
+  fillTypeSelects(); renderTypes(); renderFilter();
+};
 
 // ---------- Notes ----------
 let noteEdit = null;
@@ -401,7 +506,7 @@ $("nCancel").onclick = resetNote;
 [$("nTitle"), $("nText")].forEach(x => x.addEventListener("input", () => $("nErr").textContent = ""));
 
 // ---------- Start ----------
-fillTypeSelects(); renderTypes(); preview(); renderTable(); renderNotes();
+fillTypeSelects(); $("ty1").value = "Normal"; renderTypes(); preview(); renderAll(); renderNotes();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
